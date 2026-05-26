@@ -4,7 +4,7 @@ How to adapt this template and submit a valid algorithm to Grand Challenge.
 
 > 📌 **Official challenge site:** [reg2026.grand-challenge.org](https://reg2026.grand-challenge.org) — challenge overview, phase dates (Debug, Test 1, Test 2), data download, task and evaluation descriptions, rules, and platform notices. Check there for current phase status and sample data releases before you submit.
 
-> ℹ️ **Icons in this guide:** 📌 reference · ⚠️ warning · 🚫 do not · ✅ do · 📖 further reading
+> ℹ️ **Icons in this README:** 📌 reference · ⚠️ warning · 🚫 do not · ✅ do · 📖 further reading
 
 ---
 
@@ -216,7 +216,7 @@ reg2026_algorithm_submission_template/
 ├── do_build.sh           # build Docker image
 ├── do_test_run.sh        # local test (both interfaces)
 ├── do_save.sh            # export image + model.tar.gz for upload
-├── GUIDE.md              # this file
+├── README.md             # this file
 ├── model/                # local weights → /opt/ml/model/ (see model/README.md)
 ├── src/
 │   ├── interf0/model.py  # predict_visual_context_response()

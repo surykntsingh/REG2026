@@ -21,7 +21,7 @@ Where to add YOUR code
   The functions in core.py (I/O helpers, path constants, interface detection)
   do not need to be changed.
 
-See GUIDE.md for a full walkthrough.
+See README.md for a full walkthrough.
 """
 
 from core import (

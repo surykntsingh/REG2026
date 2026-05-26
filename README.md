@@ -11,5 +11,5 @@ The release pairs WSIs (TIFF, 20×) with **chain-of-thought** Q&A and CAP-style 
 This repo holds the **algorithm submission template**, not the dataset. To build and submit a container:
 
 1. Open [`algorithm_submission_template/`](algorithm_submission_template/).
-2. Follow [`algorithm_submission_template/GUIDE.md`](algorithm_submission_template/GUIDE.md) (Docker, both task interfaces, local tests, upload).
+2. Follow [`algorithm_submission_template/README.md`](algorithm_submission_template/README.md) (Docker, both task interfaces, local tests, upload).
 3. For weights layout, see [`algorithm_submission_template/model/README.md`](algorithm_submission_template/model/README.md).
