@@ -21,7 +21,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from core import load_json_file, load_jpg_image
+from core import load_json_file, load_roi_image
 
 # from src.your_repo.your_module import YourVQAModel   # <-- uncomment and adapt
 
@@ -36,7 +36,7 @@ def predict_visual_context_response(
 
     Args:
         question_path:  Path to visual-context-question.json (platform-fixed).
-        roi_image_path: Path to histopathology-region-of-interest-thumbnail.jpg.
+        roi_image_path: Path to histopathology-region-of-interest-thumbnail.jpeg.
 
     Returns:
         A plain string answer (written as a JSON string by inference.py).
@@ -48,7 +48,7 @@ def predict_visual_context_response(
     """
     # Load from paths — replace with your own pipeline if you prefer (paths are stable).
     question: str = load_json_file(location=question_path)
-    roi_image = load_jpg_image(location=roi_image_path)
+    roi_image = load_roi_image(location=roi_image_path)
 
     # TODO: replace with your model inference, then remove the hardcoded return below.
     # Example skeleton:

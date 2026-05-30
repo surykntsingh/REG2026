@@ -6,11 +6,11 @@ This file is the container's entrypoint (see Dockerfile).
 It detects which interface is active and calls the right handler.
 
   Interface 0 — Visual Grounding (Metric B)
-    Input  : paths to ROI thumbnail (JPG) + question (JSON)
+    Input  : paths to ROI thumbnail (.jpeg) + question (JSON)
     Output : visual-context-response.json  — a plain JSON string
 
   Interface 1 — Workflow Reasoning (Metric A)
-    Input  : path to WSI directory (.tiff inside)
+    Input  : WSI at /input/images/whole-slide-image/<uid>.tiff  (uid = opaque hash)
     Output : chain-of-thought.json  — a JSON array of {question, answer, next_question}
 
 Where to add YOUR code
@@ -64,7 +64,7 @@ def run():
 def interf0_handler():
     # --- Fixed input paths (do not change) -----------------------------------
     question_path   = INPUT_PATH / "visual-context-question.json"
-    roi_image_path  = INPUT_PATH / "histopathology-region-of-interest-thumbnail.jpg"
+    roi_image_path  = INPUT_PATH / "histopathology-region-of-interest-thumbnail.jpeg"
     output_path     = OUTPUT_PATH / "visual-context-response.json"
 
     print(f"[interf0] Question path : {question_path}")
@@ -89,11 +89,13 @@ def interf0_handler():
 # ---------------------------------------------------------------------------
 
 def interf1_handler():
-    # --- Fixed input path (do not change) ------------------------------------
-    wsi_path    = INPUT_PATH / "images/whole-slide-image"
+    # --- WSI path (platform: /input/images/whole-slide-image/<uid>.tiff) -----
+    wsi_dir = INPUT_PATH / "images" / "whole-slide-image"
+    wsi_tiff_files = list(wsi_dir.glob("*.tiff"))
+    if not wsi_tiff_files:
+        raise FileNotFoundError(f"No .tiff files found in {wsi_dir}")
+    wsi_path = wsi_tiff_files[0]
     output_path = OUTPUT_PATH / "chain-of-thought.json"
-
-    print(f"[interf1] WSI path  : {wsi_path}")
     show_torch_cuda_info()
 
     # --- Run inference -------------------------------------------------------

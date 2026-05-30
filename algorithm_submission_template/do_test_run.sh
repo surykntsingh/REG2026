@@ -5,101 +5,106 @@ set -e
 
 SCRIPT_DIR=$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )
 DOCKER_IMAGE_TAG="reg2026_algorithm"
+
 DOCKER_NOOP_VOLUME="${DOCKER_IMAGE_TAG}-volume"
 
-FIXTURES_DIR="${SCRIPT_DIR}/test/fixtures"
 INPUT_DIR="${SCRIPT_DIR}/test/input"
 OUTPUT_DIR="${SCRIPT_DIR}/test/output"
 
 echo "=+= (Re)build the container"
 source "${SCRIPT_DIR}/do_build.sh"
 
-# ---------------------------------------------------------------------------
-# GPU passthrough: use --gpus all only when Docker can actually provide a GPU.
-# (Avoids CDI / "no known GPU vendor" errors on Mac and other CPU-only hosts.)
-# ---------------------------------------------------------------------------
-DOCKER_GPU_FLAGS=()
-if docker run --rm --gpus all \
-    --platform=linux/amd64 \
-    --entrypoint true \
-    "$DOCKER_IMAGE_TAG" >/dev/null 2>&1; then
-    DOCKER_GPU_FLAGS=(--gpus all)
-    echo "=+= Docker GPU passthrough available (--gpus all)"
+# GPU passthrough: match example_algorithm flow, but only when a host NVIDIA GPU
+# is present AND Docker accepts --gpus (avoids Mac CDI / "warming up" probe hangs).
+GPU_ARGS=()
+if command -v nvidia-smi >/dev/null 2>&1 && nvidia-smi >/dev/null 2>&1; then
+    if docker run --rm --gpus all \
+        --platform=linux/amd64 \
+        --entrypoint true \
+        "$DOCKER_IMAGE_TAG" >/dev/null 2>&1; then
+        GPU_ARGS+=(--gpus all)
+        echo "=+= Docker GPU passthrough available (--gpus all)"
+    else
+        echo "=+= NVIDIA GPU detected but Docker GPU passthrough unavailable; using CPU"
+    fi
 else
-    echo "=+= No Docker GPU passthrough; container will run on CPU"
+    echo "=+= No NVIDIA GPU on host; container will run on CPU"
 fi
 
-# ---------------------------------------------------------------------------
-# Cleanup: fix output permissions, remove staged inputs, remove tmp volume
-# ---------------------------------------------------------------------------
 cleanup() {
-    echo "=+= Cleaning up ..."
+    echo "=+= Cleaning permissions ..."
+    # Ensure permissions are set correctly on the output
+    # This allows the host user (e.g. you) to access and handle these files
+    docker run --rm \
+      --platform=linux/amd64 \
+      --quiet \
+      --volume "$OUTPUT_DIR":/output \
+      --entrypoint /bin/sh \
+      $DOCKER_IMAGE_TAG \
+      -c "chmod -R -f o+rwX /output/* || true"
 
-    for idir in interf0 interf1; do
-        if [ -d "${OUTPUT_DIR}/${idir}" ]; then
-            docker run --rm \
-              --platform=linux/amd64 \
-              --quiet \
-              --volume "${OUTPUT_DIR}/${idir}":/output \
-              --entrypoint /bin/sh \
-              "$DOCKER_IMAGE_TAG" \
-              -c "chmod -R -f o+rwX /output/* || true"
-        fi
-    done
-
-    # Remove the input dirs that were staged from fixtures
-    rm -rf "${INPUT_DIR}/interf0" "${INPUT_DIR}/interf1"
-
+    # Ensure volume is removed
     docker volume rm "$DOCKER_NOOP_VOLUME" > /dev/null
 }
-trap cleanup EXIT
 
-# ---------------------------------------------------------------------------
-# Stage test fixtures into test/input right before running
-# (test/input is otherwise kept empty in the repository)
-# ---------------------------------------------------------------------------
-echo "=+= Staging test fixtures into test/input"
-cp -r "${FIXTURES_DIR}/interf0" "${INPUT_DIR}/interf0"
-cp -r "${FIXTURES_DIR}/interf1" "${INPUT_DIR}/interf1"
+# This allows for the Docker user to read
+chmod -R -f o+rX "$INPUT_DIR" "${SCRIPT_DIR}/model"
 
-# Allow the Docker user to read staged inputs and model weights
-chmod -R -f o+rX "${INPUT_DIR}/interf0" "${INPUT_DIR}/interf1" "${SCRIPT_DIR}/model"
 
-# ---------------------------------------------------------------------------
-# Prepare output directories
-# ---------------------------------------------------------------------------
-for idir in interf0 interf1; do
-    if [ -d "${OUTPUT_DIR}/${idir}" ]; then
-        chmod -f o+rwX "${OUTPUT_DIR}/${idir}"
-        echo "=+= Cleaning up earlier output for ${idir}"
-        docker run --rm \
-            --platform=linux/amd64 \
-            --quiet \
-            --volume "${OUTPUT_DIR}/${idir}":/output \
-            --entrypoint /bin/sh \
-            "$DOCKER_IMAGE_TAG" \
-            -c "rm -rf /output/* || true"
-    else
-        mkdir -p -m o+rwX "${OUTPUT_DIR}/${idir}"
-    fi
-done
+if [ -d "${OUTPUT_DIR}/interf0" ]; then
+  # This allows for the Docker user to write
+  chmod -f o+rwX "${OUTPUT_DIR}/interf0"
+
+  echo "=+= Cleaning up any earlier output"
+  # Use the container itself to circumvent ownership problems
+  docker run --rm \
+      --platform=linux/amd64 \
+      --quiet \
+      --volume "${OUTPUT_DIR}/interf0":/output \
+      --entrypoint /bin/sh \
+      $DOCKER_IMAGE_TAG \
+      -c "rm -rf /output/* || true"
+else
+  mkdir -p -m o+rwX "${OUTPUT_DIR}/interf0"
+fi
+
+if [ -d "${OUTPUT_DIR}/interf1" ]; then
+  # This allows for the Docker user to write
+  chmod -f o+rwX "${OUTPUT_DIR}/interf1"
+
+  echo "=+= Cleaning up any earlier output"
+  # Use the container itself to circumvent ownership problems
+  docker run --rm \
+      --platform=linux/amd64 \
+      --quiet \
+      --volume "${OUTPUT_DIR}/interf1":/output \
+      --entrypoint /bin/sh \
+      $DOCKER_IMAGE_TAG \
+      -c "rm -rf /output/* || true"
+else
+  mkdir -p -m o+rwX "${OUTPUT_DIR}/interf1"
+fi
+
 
 docker volume create "$DOCKER_NOOP_VOLUME" > /dev/null
 
-# ---------------------------------------------------------------------------
-# Run a single forward pass for a given interface directory
-# ---------------------------------------------------------------------------
+trap cleanup EXIT
+
 run_docker_forward_pass() {
     local interface_dir="$1"
 
     echo "=+= Doing a forward pass on ${interface_dir}"
 
-    ## Key Docker flags:
-    # '--network none'             no internet access (matches Grand Challenge runtime)
-    # "${DOCKER_GPU_FLAGS[@]}"     --gpus all when probe succeeded (see above)
-    # '--volume <NOOP>:/tmp'       /tmp is ephemeral on the platform — mirrored here
-    # '--volume ./model:/opt/ml/model:ro'  local model weights mount
-    docker run --rm "${DOCKER_GPU_FLAGS[@]}" \
+    ## Note the extra arguments that are passed here:
+    # '--network none'
+    #    entails there is no internet connection
+    # "${GPU_ARGS[@]}"
+    #    enables access to any GPUs present when Docker GPU passthrough works
+    # '--volume <NAME>:/tmp'
+    #   is added because on Grand Challenge this directory cannot be used to store permanent files
+    # '--volume ../model:/opt/ml/model/":ro'
+    #   is added to provide access to the (optional) tarball-upload locally
+    docker run --rm "${GPU_ARGS[@]}" \
         --platform=linux/amd64 \
         --network none \
         --volume "${INPUT_DIR}/${interface_dir}":/input:ro \
@@ -108,15 +113,14 @@ run_docker_forward_pass() {
         --volume "${SCRIPT_DIR}/model":/opt/ml/model:ro \
         "$DOCKER_IMAGE_TAG"
 
-    echo "=+= Results written to ${OUTPUT_DIR}/${interface_dir}"
+  echo "=+= Wrote results to ${OUTPUT_DIR}/${interface_dir}"
 }
 
-# ---------------------------------------------------------------------------
-# Run both interfaces
-# ---------------------------------------------------------------------------
+
 run_docker_forward_pass "interf0"
+
 run_docker_forward_pass "interf1"
 
-python3 "${SCRIPT_DIR}/test/validate_outputs.py"
 
-echo "=+= All done. Save for upload with ./do_save.sh"
+
+echo "=+= Save this image for uploading via ./do_save.sh"

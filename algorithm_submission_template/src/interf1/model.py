@@ -28,11 +28,10 @@ Output schema per step:
 
 from __future__ import annotations
 
-import glob
 from pathlib import Path
 from typing import TypedDict
 
-import tifffile
+from core import load_wsi_array
 
 # from src.your_repo.your_module import YourReasoningModel   # <-- uncomment and adapt
 
@@ -50,7 +49,8 @@ def predict_chain_of_thought(*, wsi_path: Path) -> list[ChainOfThoughtStep]:
     Run Workflow Reasoning inference for a single whole-slide image.
 
     Args:
-        wsi_path: Directory containing the WSI .tiff (platform-fixed).
+        wsi_path: Path to /input/images/whole-slide-image/<uid>.tiff
+            (<uid> is an opaque UUID hash from inputs.json image.name).
 
     Returns:
         A list of steps, each with keys: question, answer, next_question.
@@ -62,10 +62,7 @@ def predict_chain_of_thought(*, wsi_path: Path) -> list[ChainOfThoughtStep]:
     submission validation.
     """
     # Load from wsi_path — swap for memmap, OpenSlide, cuCIM, etc. if needed.
-    tiff_paths = sorted(glob.glob(str(wsi_path / "*.tiff")))
-    if not tiff_paths:
-        raise FileNotFoundError(f"No .tiff file found in {wsi_path}")
-    wsi_array = tifffile.imread(tiff_paths[0])
+    wsi_array = load_wsi_array(location=wsi_path)
 
     # TODO: replace placeholder return with model inference, e.g.:
     #   device = torch.device("cuda" if torch.cuda.is_available() else "cpu")

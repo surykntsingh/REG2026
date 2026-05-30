@@ -64,8 +64,8 @@ REG2026 has two task types. Grand Challenge calls each an **interface**: a fixed
 
 | Interface | Task | Metric | Inputs | Output file |
 |---|---|---|---|---|
-| **0** | Visual Grounding | B | ROI thumbnail (JPG) + question (JSON) | `visual-context-response.json` |
-| **1** | Workflow Reasoning | A | Whole slide image (`.tiff`) | `chain-of-thought.json` |
+| **0** | Visual Grounding | B | ROI thumbnail (`.jpeg`) + question (JSON) | `visual-context-response.json` |
+| **1** | Workflow Reasoning | A | Whole slide image (`<uid>.tiff`, opaque UUID hash) | `chain-of-thought.json` |
 
 Your container must implement **both**. The platform picks the interface per run (section 5); you do not branch manually.
 
@@ -109,7 +109,7 @@ Before your code runs, the platform writes `/input/inputs.json` with the input s
 | Role | Path |
 |---|---|
 | Question | `/input/visual-context-question.json` |
-| ROI thumbnail | `/input/histopathology-region-of-interest-thumbnail.jpg` |
+| ROI thumbnail | `/input/histopathology-region-of-interest-thumbnail.jpeg` |
 | Interface selector | `/input/inputs.json` (read by `core.py`) |
 | Your answer | `/output/visual-context-response.json` |
 
@@ -124,7 +124,7 @@ def predict_visual_context_response(
     ...
 ```
 
-The template loads inputs with [`load_json_file`](core.py) and [`load_jpg_image`](core.py), sets `device = torch.device("cuda" if torch.cuda.is_available() else "cpu")`, and includes a placeholder return you should replace.
+The template loads inputs with [`load_json_file`](core.py) and [`load_roi_image`](core.py) (logs file size and pixel stats to verify the ROI is not empty or corrupt), sets `device = torch.device("cuda" if torch.cuda.is_available() else "cpu")`, and includes a placeholder return you should replace.
 
 > 🚫 **Do not change the return type** (`str`). `inference.py` writes it directly to `visual-context-response.json`.
 
@@ -142,11 +142,27 @@ A **plain JSON string** — not an object or array:
 
 ### Platform paths
 
+Each Interface 1 case is one whole-slide image. The platform mounts it under a **fixed directory**, but the **filename is an opaque `<uid>`** (a long UUID-style hash), not a human-readable slide name and not a generic name like `whole-slide-image.tiff`.
+
 | Role | Path |
 |---|---|
-| WSI directory | `/input/images/whole-slide-image/` (contains a `.tiff` file) |
+| WSI directory | `/input/images/whole-slide-image/` |
+| WSI file | `/input/images/whole-slide-image/<uid>.tiff` |
+| Filename in `inputs.json` | `image.name` on the `whole-slide-image` socket (e.g. `d021e460-42d8-4a72-b83e-f07050d8468a.tiff`) |
 | Interface selector | `/input/inputs.json` (read by `core.py`) |
 | Your chain of thought | `/output/chain-of-thought.json` |
+
+> ℹ️ **`<uid>`** is an **anonymous platform identifier** (typically a UUID such as `d021e460-42d8-4a72-b83e-f07050d8468a`). It is **not** the original slide filename (e.g. not `PIT_01_00020_01.tiff`). [`resolve_wsi_path()`](core.py) reads `image.name` from `/input/inputs.json` and opens `/input/images/whole-slide-image/<uid>.tiff`. Do not hard-code or guess the uid in your code.
+
+**Example layout for one case:**
+
+```
+/input/
+├── inputs.json
+└── images/
+    └── whole-slide-image/
+        └── d021e460-42d8-4a72-b83e-f07050d8468a.tiff   ← <uid>.tiff (hash varies per case)
+```
 
 ### Your code
 
@@ -157,7 +173,7 @@ def predict_chain_of_thought(*, wsi_path: Path) -> list[ChainOfThoughtStep]:
     ...
 ```
 
-`ChainOfThoughtStep` is defined in the same file. The template loads the first `*.tiff` under `wsi_path` with [tifffile](https://pypi.org/project/tifffile/), sets `device` for CUDA when available, and includes a placeholder return you should replace. For large slides you may use `memmap`, OpenSlide, or cuCIM; keep `wsi_path` as the entry point.
+`ChainOfThoughtStep` is defined in the same file. [`inference.py`](inference.py) resolves `wsi_path` via [`resolve_wsi_path()`](core.py), then the template loads it with [`load_wsi_array`](core.py) ([tifffile](https://pypi.org/project/tifffile/)) and logs array shape, dtype, min/max/mean/std, and sample values to verify the slide is not empty or corrupt. For large slides you may use `memmap`, OpenSlide, or cuCIM in your own code; keep `wsi_path` as the entry point.
 
 > 🚫 **Do not change the return type** (`list[ChainOfThoughtStep]`). `inference.py` writes the list directly to `chain-of-thought.json`.
 
@@ -221,10 +237,14 @@ reg2026_algorithm_submission_template/
 ├── src/
 │   ├── interf0/model.py  # predict_visual_context_response()
 │   └── interf1/model.py  # predict_chain_of_thought()
-└── test/
-    ├── fixtures/         # sample inputs (interf0/, interf1/)
-    ├── validate_outputs.py
-    └── output/           # written by do_test_run.sh (local only)
+└── test/                 # mirrors platform /input and /output layout
+    ├── input/
+    │   ├── interf0/      # ROI .jpeg + question JSON
+    │   └── interf1/
+    │       ├── inputs.json              # image.name → <uid>.tiff (UUID hash)
+    │       └── images/whole-slide-image/
+    │           └── d021e460-42d8-4a72-b83e-f07050d8468a.tiff
+    └── output/           # written by do_test_run.sh (gitignored)
 ```
 
 Implement inference in the `src/interf*/model.py` files or import from a package under `src/`. List any new packages in [`requirements.txt`](requirements.txt).
@@ -265,9 +285,12 @@ For local testing, [`do_test_run.sh`](do_test_run.sh) bind-mounts [`model/`](mod
 Run [`do_test_run.sh`](do_test_run.sh) from this directory. It:
 
 1. Builds the image ([`do_build.sh`](do_build.sh)).
-2. Copies [`test/fixtures/interf0/`](test/fixtures/interf0/) and [`test/fixtures/interf1/`](test/fixtures/interf1/) into `test/input/` (mirrors `/input` layout).
+2. Mounts [`test/input/interf0/`](test/input/interf0/) and [`test/input/interf1/`](test/input/interf1/) as `/input` (same layout as the platform).
 3. Runs Interface 0, then Interface 1, with no internet (GPU if available).
-4. Runs [`test/validate_outputs.py`](test/validate_outputs.py) on the outputs.
+
+Keep sample cases under `test/input/interf0/` and `test/input/interf1/` in the repo. Outputs go to `test/output/` (not tracked).
+
+**Interface 1 test fixture:** the sample WSI must be named `<uid>.tiff` under `test/input/interf1/images/whole-slide-image/`, and [`test/input/interf1/inputs.json`](test/input/interf1/inputs.json) must set the matching `image.name` (bundled example: `d021e460-42d8-4a72-b83e-f07050d8468a.tiff`). Use the same opaque hash for both the file on disk and `image.name` — not a slide basename. Do not use a fixed name like `whole-slide-image.tiff`.
 
 Expected files after a successful run:
 
@@ -296,14 +319,15 @@ Expected files after a successful run:
 
 These paths are defined in [`core.py`](core.py) and wired in [`inference.py`](inference.py).
 
-> 🚫 **Do not change these paths** in `core.py` or `inference.py`.
+> 🚫 **Do not change the directory layout or socket filenames** in `core.py` or `inference.py`. The WSI **basename** `<uid>.tiff` changes per case; resolve it with [`resolve_wsi_path()`](core.py), do not hard-code a single filename.
 
 | Path | Interface | Purpose |
 |---|---|---|
 | `/input/inputs.json` | Both | Interface selector |
 | `/input/visual-context-question.json` | 0 | Question |
-| `/input/histopathology-region-of-interest-thumbnail.jpg` | 0 | ROI thumbnail |
-| `/input/images/whole-slide-image/` | 1 | WSI directory |
+| `/input/histopathology-region-of-interest-thumbnail.jpeg` | 0 | ROI thumbnail |
+| `/input/images/whole-slide-image/` | 1 | WSI directory (one file per case) |
+| `/input/images/whole-slide-image/<uid>.tiff` | 1 | WSI file (`<uid>` = opaque UUID in `image.name`) |
 | `/output/visual-context-response.json` | 0 | Your answer |
 | `/output/chain-of-thought.json` | 1 | Your reasoning steps |
 | `/opt/ml/model/` | Both | Model weights |
