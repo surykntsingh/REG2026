@@ -11,9 +11,7 @@ Steps:
        from src.your_repo.your_module import YourVQAModel
 
 Platform rules for this interface:
-  - If the ROI shows non-tissue background, the answer MUST be "not_informative".
-    Returning any diagnostic claim for a background region is penalised.
-  - For tissue ROIs, return a clinically grounded free-text answer.
+  - Return a clinically grounded free-text answer.
   - The output is a plain JSON string — just the answer text, nothing else.
 """
 
@@ -40,7 +38,6 @@ def predict_visual_context_response(
 
     Returns:
         A plain string answer (written as a JSON string by inference.py).
-        Return "not_informative" if the ROI contains no tissue.
 
     IMPORTANT — do not change the return type (must stay ``str``). The platform
     expects a plain JSON string in visual-context-response.json; changing this
