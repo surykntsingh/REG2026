@@ -162,15 +162,7 @@ cython_debug/
 # Ignore exported/saved images
 *.tar.gz
 
-example_evaluation_method/ground_truth/Qwen3-14B
-example_evaluation_method/ground_truth/Qwen3-8B
-
-
-example_evaluation_method/EVALUATION_CONTAINER_GUIDE.md
-
-example_evaluation_method/test/output
-upload_to_archive/interf0
-upload_to_archive/interf1
-
-
 .DS_Store
+
+submission_evaluation_code/ground_truth/Qwen3-8B
+submission_evaluation_code/test
