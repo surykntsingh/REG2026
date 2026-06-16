@@ -562,7 +562,10 @@ class SemanticScorer:
                 raise ValueError("semantic backend is 'embedding', but embedding_model_name is None.")
             print(f"[SemanticScorer] Loading embedding model {embedding_model_name}...", flush=True)
             from sentence_transformers import SentenceTransformer
-            self.embedding_model = SentenceTransformer(embedding_model_name)
+            self.embedding_model = SentenceTransformer(
+                embedding_model_name,
+                local_files_only=True,
+            )
             print("[SemanticScorer] Embedding model loaded.", flush=True)
         if self.backend == "llm" and self.llm_judge is None:
             raise ValueError("semantic backend is 'llm', but no judge LLM is provided.")
@@ -632,8 +635,8 @@ SAME or DIFFERENT
 class EmbeddingEvaluator:
     def __init__(self, model_name: str):
         from transformers import AutoTokenizer, AutoModel
-        self.tokenizer = AutoTokenizer.from_pretrained(model_name)
-        self.model = AutoModel.from_pretrained(model_name)
+        self.tokenizer = AutoTokenizer.from_pretrained(model_name, local_files_only=True)
+        self.model = AutoModel.from_pretrained(model_name, local_files_only=True)
 
     @torch.no_grad()
     def get_embedding(self, text: str):

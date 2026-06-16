@@ -29,15 +29,17 @@ RUN python -m pip install --user --no-cache-dir --upgrade pip setuptools wheel \
 RUN python -m pip install --user --no-cache-dir \
     https://s3-us-west-2.amazonaws.com/ai2-s2-scispacy/releases/v0.5.4/en_core_sci_lg-0.5.4.tar.gz
 
-RUN python -c "from transformers import AutoModel, AutoTokenizer; m='NeuML/pubmedbert-base-embeddings'; AutoTokenizer.from_pretrained(m); AutoModel.from_pretrained(m)"
-
-COPY --chown=user:user helpers.py evaluate.py evaluate_metrics.py /opt/app/
-
 # Defaults match evaluation_config.env (overridden at build time via do_build.sh --build-arg)
 ARG GRAND_CHALLENGE_MAX_WORKERS=
 ARG JUDGE_DEVICE=auto
 ARG JUDGE_MODEL_PATH=/opt/ml/input/data/ground_truth/Qwen3-8B
 ARG EMBEDDING_MODEL=NeuML/pubmedbert-base-embeddings
+
+# Pre-cache embedding weights for offline evaluation (--network none at runtime).
+# transformers cache alone is insufficient: SemanticScorer uses SentenceTransformer (modules.json).
+RUN python -c "from transformers import AutoModel, AutoTokenizer; from sentence_transformers import SentenceTransformer; m='${EMBEDDING_MODEL}'; AutoTokenizer.from_pretrained(m); AutoModel.from_pretrained(m); SentenceTransformer(m)"
+
+COPY --chown=user:user helpers.py evaluate.py evaluate_metrics.py /opt/app/
 ARG INCLUDE_PER_CASE_RESULTS=0
 ARG INCLUDE_EVALUATION_DETAILS=0
 
@@ -45,6 +47,8 @@ ENV GRAND_CHALLENGE_MAX_WORKERS=${GRAND_CHALLENGE_MAX_WORKERS}
 ENV JUDGE_DEVICE=${JUDGE_DEVICE}
 ENV JUDGE_MODEL_PATH=${JUDGE_MODEL_PATH}
 ENV EMBEDDING_MODEL=${EMBEDDING_MODEL}
+ENV HF_HUB_OFFLINE=1
+ENV TRANSFORMERS_OFFLINE=1
 ENV INCLUDE_PER_CASE_RESULTS=${INCLUDE_PER_CASE_RESULTS}
 ENV INCLUDE_EVALUATION_DETAILS=${INCLUDE_EVALUATION_DETAILS}
 
