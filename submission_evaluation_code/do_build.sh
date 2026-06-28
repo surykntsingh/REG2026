@@ -9,12 +9,9 @@ source "${SCRIPT_DIR}/config.sh"
 
 docker build \
   --platform=linux/amd64 \
-  ${DOCKER_NO_CACHE:+--no-cache} \
   --tag "$DOCKER_IMAGE_TAG" \
   --build-arg "GRAND_CHALLENGE_MAX_WORKERS=${GRAND_CHALLENGE_MAX_WORKERS}" \
   --build-arg "JUDGE_DEVICE=${JUDGE_DEVICE}" \
-  --build-arg "JUDGE_DTYPE=${JUDGE_DTYPE}" \
-  --build-arg "JUDGE_MAX_NEW_TOKENS=${JUDGE_MAX_NEW_TOKENS}" \
   --build-arg "JUDGE_MODEL_PATH=${JUDGE_MODEL_PATH}" \
   --build-arg "EMBEDDING_MODEL=${EMBEDDING_MODEL}" \
   --build-arg "INCLUDE_PER_CASE_RESULTS=${INCLUDE_PER_CASE_RESULTS}" \
