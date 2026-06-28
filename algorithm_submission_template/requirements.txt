@@ -2,5 +2,6 @@ Pillow
 numpy
 tifffile
 imagecodecs
-tiffslide
+tiffslide==2.5.1
+zarr<3
 numcodecs<0.16
