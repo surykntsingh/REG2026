@@ -29,14 +29,25 @@ Output schema per step:
 from __future__ import annotations
 
 import os
+import time
 from pathlib import Path
 from typing import TypedDict
 
 import torch
 
-from core import MODEL_PATH, load_wsi_array
+from core import MODEL_PATH
 from path_wsi_reasoner.main import predict_metric_a_single_case
 from trident import extract_conch_v15_features_for_wsi
+
+
+def _log_stage(message: str, start_time: float | None = None) -> float:
+    now = time.monotonic()
+    if start_time is None:
+        print(f"[interf1] {message}", flush=True)
+    else:
+        print(f"[interf1] {message} ({now - start_time:.2f}s)", flush=True)
+    return now
+
 
 class ChainOfThoughtStep(TypedDict):
     """One reasoning step — keys must match the platform schema exactly."""
@@ -157,11 +168,11 @@ def predict_chain_of_thought(*, wsi_path: Path) -> list[ChainOfThoughtStep]:
     to chain-of-thought.json; wrapping it or changing field names will break
     submission validation.
     """
-    wsi_array = load_wsi_array(location=wsi_path)
+    total_start = _log_stage("starting Metric A inference")
     _prepare_trident_offline_weights()
+    stage_start = _log_stage("generating CONCH features with TRIDENT")
     feature_path = extract_conch_v15_features_for_wsi(
         wsi_path=wsi_path,
-        wsi_array=wsi_array,
         job_dir=Path("/tmp/reg2026_trident"),
         patch_encoder_weights_path=_resolve_conch_v15_weights_path(),
         segmenter="hest",
@@ -172,15 +183,20 @@ def predict_chain_of_thought(*, wsi_path: Path) -> list[ChainOfThoughtStep]:
         dataloader_workers=0,
         device="cuda:0" if torch.cuda.is_available() else "cpu",
         mpp=0.5,
-        reader_type="array",
-        remove_artifacts=True,
+        reader_type="tiffslide",
+        remove_artifacts=False,
         remove_holes=True,
     )
+    stage_start = _log_stage(f"generated CONCH features at {feature_path}", stage_start)
 
-    return predict_metric_a_single_case(
+    stage_start = _log_stage("running Metric A single-case prediction")
+    prediction = predict_metric_a_single_case(
         wsi_path=wsi_path,
         config_file_path=_resolve_metric_a_config_path(),
         checkpoint_path=_resolve_metric_a_checkpoint_path(),
         reports_json_path=_resolve_metric_a_reports_path(),
         feature_path=feature_path,
     )
+    _log_stage("completed Metric A single-case prediction", stage_start)
+    _log_stage("completed Metric A inference", total_start)
+    return prediction
