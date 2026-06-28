@@ -17,6 +17,7 @@ Platform rules for this interface:
 
 from __future__ import annotations
 
+import traceback
 from pathlib import Path
 
 from core import load_json_file, load_roi_image
@@ -45,8 +46,13 @@ def predict_visual_context_response(
     question: str = load_json_file(location=question_path)
     roi_image = load_roi_image(location=roi_image_path)
 
-    return predict_metric_b_single_case_from_model_dir(
-        question=question,
-        roi_image=roi_image,
-        model_dir=Path("/opt/ml/model"),
-    )
+    try:
+        return predict_metric_b_single_case_from_model_dir(
+            question=question,
+            roi_image=roi_image,
+            model_dir=Path("/opt/ml/model"),
+        )
+    except Exception:
+        print("[interf0] ERROR: Metric B inference failed.", flush=True)
+        traceback.print_exc()
+        return "Unable to generate a visual-context response for this case."
