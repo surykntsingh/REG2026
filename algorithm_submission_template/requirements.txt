@@ -3,3 +3,4 @@ numpy
 tifffile
 imagecodecs
 tiffslide
+numcodecs<0.16
