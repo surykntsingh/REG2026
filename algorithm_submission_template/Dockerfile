@@ -7,6 +7,9 @@ ENV PYTHONDONTWRITEBYTECODE=1
 # Ensure imports like "from core import ..." work from src/ submodules
 ENV PYTHONPATH=/opt/app
 ENV PATH=/home/user/.local/bin:${PATH}
+# Evaluation uses one GPU. Hide any extra visible devices before CUDA-aware
+# libraries initialize to avoid multi-GPU probing or model wrapping stalls.
+ENV CUDA_VISIBLE_DEVICES=0
 
 RUN apt-get update \
     && apt-get install -y --no-install-recommends \

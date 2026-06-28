@@ -18,12 +18,12 @@ source "${SCRIPT_DIR}/do_build.sh"
 # is present AND Docker accepts --gpus (avoids Mac CDI / "warming up" probe hangs).
 GPU_ARGS=()
 if command -v nvidia-smi >/dev/null 2>&1 && nvidia-smi >/dev/null 2>&1; then
-    if docker run --rm --gpus all \
+    if docker run --rm --gpus "device=0" \
         --platform=linux/amd64 \
         --entrypoint true \
         "$DOCKER_IMAGE_TAG" >/dev/null 2>&1; then
-        GPU_ARGS+=(--gpus all)
-        echo "=+= Docker GPU passthrough available (--gpus all)"
+        GPU_ARGS+=(--gpus "device=0")
+        echo "=+= Docker GPU passthrough available (--gpus device=0)"
     else
         echo "=+= NVIDIA GPU detected but Docker GPU passthrough unavailable; using CPU"
     fi
