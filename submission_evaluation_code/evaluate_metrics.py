@@ -510,6 +510,7 @@ class LocalQwenJudgeLLM:
             enable_thinking=True
         )
         timings["prompt_creation"] = time.perf_counter() - t0
+        print(f'text: {text}')
 
         t1 = time.perf_counter()
         model_inputs = self.tokenizer([text], return_tensors="pt").to(self.input_device)
