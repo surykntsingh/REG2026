@@ -32,6 +32,7 @@ RUN python -m pip install --user --no-cache-dir \
 # Defaults match evaluation_config.env (overridden at build time via do_build.sh --build-arg)
 ARG GRAND_CHALLENGE_MAX_WORKERS=
 ARG JUDGE_DEVICE=auto
+ARG JUDGE_DTYPE=auto
 ARG JUDGE_MODEL_PATH=/opt/ml/input/data/ground_truth/Qwen3-8B
 ARG EMBEDDING_MODEL=NeuML/pubmedbert-base-embeddings
 
@@ -45,6 +46,7 @@ ARG INCLUDE_EVALUATION_DETAILS=0
 
 ENV GRAND_CHALLENGE_MAX_WORKERS=${GRAND_CHALLENGE_MAX_WORKERS}
 ENV JUDGE_DEVICE=${JUDGE_DEVICE}
+ENV JUDGE_DTYPE=${JUDGE_DTYPE}
 ENV JUDGE_MODEL_PATH=${JUDGE_MODEL_PATH}
 ENV EMBEDDING_MODEL=${EMBEDDING_MODEL}
 ENV HF_HUB_OFFLINE=1

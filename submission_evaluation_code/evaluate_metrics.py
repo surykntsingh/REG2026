@@ -385,6 +385,37 @@ def resolve_judge_device(requested: Optional[str] = None) -> str:
     return raw
 
 
+def resolve_judge_dtype(
+    *,
+    requested: Optional[str] = None,
+    use_cuda: bool,
+    capability: Optional[Tuple[int, int]] = None,
+):
+    """
+    Pick the judge model dtype.
+
+    Honors ``JUDGE_DTYPE`` when set. ``auto`` uses a conservative default:
+      - CPU: float32
+      - pre-Ampere CUDA: float16
+      - Ampere (8.x): float16
+      - Hopper and newer (>= 9.0): bfloat16
+    """
+    raw = (requested or os.environ.get("JUDGE_DTYPE", "auto")).strip().lower()
+    if raw in ("float32", "fp32"):
+        return torch.float32
+    if raw in ("float16", "fp16", "half"):
+        return torch.float16
+    if raw in ("bfloat16", "bf16"):
+        return torch.bfloat16
+    if not use_cuda:
+        return torch.float32
+
+    major = capability[0] if capability is not None else 0
+    if major >= 9:
+        return torch.bfloat16
+    return torch.float16
+
+
 def print_runtime_diagnostics(requested_device: Optional[str] = None) -> None:
     """Print environment and device info to simplify post-mortem debugging."""
     print("[Runtime] Environment diagnostics", flush=True)
@@ -393,6 +424,9 @@ def print_runtime_diagnostics(requested_device: Optional[str] = None) -> None:
     judge_env = os.environ.get("JUDGE_DEVICE")
     if judge_env is not None:
         print(f"[Runtime] JUDGE_DEVICE env = {judge_env!r}", flush=True)
+    judge_dtype_env = os.environ.get("JUDGE_DTYPE")
+    if judge_dtype_env is not None:
+        print(f"[Runtime] JUDGE_DTYPE env = {judge_dtype_env!r}", flush=True)
     try:
         print(f"[Runtime] torch version = {torch.__version__}", flush=True)
         cuda_available = torch.cuda.is_available()
@@ -462,14 +496,17 @@ class LocalQwenJudgeLLM:
         if use_cuda:
             dev = torch.device(device)
             major, minor = torch.cuda.get_device_capability(dev)
-            dtype = torch.bfloat16 if major >= 8 else torch.float16
+            dtype = resolve_judge_dtype(
+                use_cuda=True,
+                capability=(major, minor),
+            )
             print(
                 f"[Judge LLM] GPU cuda capability={major}.{minor}, dtype={dtype}",
                 flush=True,
             )
         else:
             dev = torch.device("cpu")
-            dtype = torch.float32
+            dtype = resolve_judge_dtype(use_cuda=False)
             print(f"[Judge LLM] Using CPU, dtype={dtype}", flush=True)
 
         device_map = "auto" if use_cuda else None
@@ -521,7 +558,7 @@ class LocalQwenJudgeLLM:
         generated_ids = self.model.generate(
             **model_inputs,
             max_new_tokens=self.max_new_tokens,
-            do_sample=True,
+            do_sample=False,
             # use_cache=True
         )
         timings["reasoning"] = time.perf_counter() - t2
