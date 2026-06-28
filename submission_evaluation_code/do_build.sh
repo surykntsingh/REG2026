@@ -9,6 +9,7 @@ source "${SCRIPT_DIR}/config.sh"
 
 docker build \
   --platform=linux/amd64 \
+  ${DOCKER_NO_CACHE:+--no-cache} \
   --tag "$DOCKER_IMAGE_TAG" \
   --build-arg "GRAND_CHALLENGE_MAX_WORKERS=${GRAND_CHALLENGE_MAX_WORKERS}" \
   --build-arg "JUDGE_DEVICE=${JUDGE_DEVICE}" \

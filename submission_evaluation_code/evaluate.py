@@ -35,6 +35,7 @@ from typing import Any
 
 import evaluate_metrics
 from helpers import setup_logger, tree
+import transformers
 
 logger = logging.getLogger("evaluate")
 
@@ -113,6 +114,7 @@ def main() -> int:
         f"[Config] JUDGE_MAX_NEW_TOKENS env={os.environ.get('JUDGE_MAX_NEW_TOKENS')!r}",
         flush=True,
     )
+    print(f"[Config] transformers.__version__={transformers.__version__}", flush=True)
     print(f"[Config] resolved judge_device={judge_device!r}", flush=True)
     print(f"[Config] EMBEDDING_MODEL={embedding_for_reg25!r}", flush=True)
     evaluate_metrics.print_runtime_diagnostics(judge_device)
