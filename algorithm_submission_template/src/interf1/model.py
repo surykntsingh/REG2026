@@ -28,12 +28,15 @@ Output schema per step:
 
 from __future__ import annotations
 
+import os
 from pathlib import Path
 from typing import TypedDict
 
-from core import load_wsi_array
+import torch
 
-# from src.your_repo.your_module import YourReasoningModel   # <-- uncomment and adapt
+from core import MODEL_PATH
+from path_wsi_reasoner.main import predict_metric_a_single_case
+from trident import extract_conch_v15_features_for_wsi
 
 
 class ChainOfThoughtStep(TypedDict):
@@ -42,6 +45,100 @@ class ChainOfThoughtStep(TypedDict):
     question: str
     answer: str
     next_question: str
+
+
+def _resolve_conch_v15_weights_path() -> Path | None:
+    env_path = os.environ.get("TRIDENT_CONCH_V15_WEIGHTS")
+    if env_path:
+        candidate = Path(env_path)
+        if candidate.exists():
+            return candidate
+
+    candidates = [
+        MODEL_PATH / "pytorch_model_vision.bin",
+        MODEL_PATH / "conch_v15" / "pytorch_model_vision.bin",
+        MODEL_PATH / "conchv1_5" / "pytorch_model_vision.bin",
+        MODEL_PATH / "conch_v1_5" / "pytorch_model_vision.bin",
+    ]
+    for candidate in candidates:
+        if candidate.exists():
+            return candidate
+    return None
+
+
+def _first_existing_path(*candidates: Path) -> Path | None:
+    for candidate in candidates:
+        if candidate.exists():
+            return candidate
+    return None
+
+
+def _set_env_path_if_exists(name: str, *candidates: Path) -> None:
+    if os.environ.get(name):
+        return
+    resolved = _first_existing_path(*candidates)
+    if resolved is not None:
+        os.environ[name] = str(resolved)
+
+
+def _prepare_trident_offline_weights() -> None:
+    _set_env_path_if_exists(
+        "TRIDENT_SEG_HEST_WEIGHTS",
+        MODEL_PATH / "deeplabv3_seg_v4.ckpt",
+        MODEL_PATH / "hest" / "deeplabv3_seg_v4.ckpt",
+        MODEL_PATH / "segmentation" / "hest" / "deeplabv3_seg_v4.ckpt",
+        MODEL_PATH / "trident" / "seg" / "hest" / "deeplabv3_seg_v4.ckpt",
+    )
+    _set_env_path_if_exists(
+        "TRIDENT_SEG_GRANDQC_ARTIFACT_WEIGHTS",
+        MODEL_PATH / "GrandQC_MPP1_state_dict.pth",
+        MODEL_PATH / "grandqc_artifact" / "GrandQC_MPP1_state_dict.pth",
+        MODEL_PATH / "segmentation" / "grandqc_artifact" / "GrandQC_MPP1_state_dict.pth",
+        MODEL_PATH / "trident" / "seg" / "grandqc_artifact" / "GrandQC_MPP1_state_dict.pth",
+    )
+
+
+def _resolve_metric_a_config_path() -> Path:
+    env_path = os.environ.get("METRIC_A_CONFIG_PATH")
+    if env_path and Path(env_path).exists():
+        return Path(env_path)
+    resolved = _first_existing_path(
+        MODEL_PATH / "config.yaml",
+        MODEL_PATH / "metric_a" / "config.yaml",
+    )
+    if resolved is None:
+        raise FileNotFoundError(
+            "Metric A config.yaml was not found. Put it at /opt/ml/model/config.yaml "
+            "or /opt/ml/model/metric_a/config.yaml via algorithm_submission_template/model."
+        )
+    return resolved
+
+
+def _resolve_metric_a_checkpoint_path() -> Path | None:
+    env_path = os.environ.get("METRIC_A_CHECKPOINT_PATH")
+    if env_path and Path(env_path).exists():
+        return Path(env_path)
+    return _first_existing_path(
+        MODEL_PATH / "metric_a.ckpt",
+        MODEL_PATH / "stage2_model.ckpt",
+        MODEL_PATH / "cot_workflow_model.ckpt",
+        MODEL_PATH / "metric_a" / "metric_a.ckpt",
+        MODEL_PATH / "metric_a" / "stage2_model.ckpt",
+        MODEL_PATH / "metric_a" / "cot_workflow_model.ckpt",
+        MODEL_PATH / "histgen_cot_stage2" / "metric_a.ckpt",
+    )
+
+
+def _resolve_metric_a_reports_path() -> Path | None:
+    env_path = os.environ.get("METRIC_A_REPORTS_JSON_PATH")
+    if env_path and Path(env_path).exists():
+        return Path(env_path)
+    return _first_existing_path(
+        MODEL_PATH / "reports.json",
+        MODEL_PATH / "train_CoT_v01.json",
+        MODEL_PATH / "metric_a" / "reports.json",
+        MODEL_PATH / "metric_a" / "train_CoT_v01.json",
+    )
 
 
 def predict_chain_of_thought(*, wsi_path: Path) -> list[ChainOfThoughtStep]:
@@ -61,32 +158,27 @@ def predict_chain_of_thought(*, wsi_path: Path) -> list[ChainOfThoughtStep]:
     to chain-of-thought.json; wrapping it or changing field names will break
     submission validation.
     """
-    # Load from wsi_path — swap for memmap, OpenSlide, cuCIM, etc. if needed.
-    wsi_array = load_wsi_array(location=wsi_path)
+    _prepare_trident_offline_weights()
+    feature_path = extract_conch_v15_features_for_wsi(
+        wsi_path=wsi_path,
+        job_dir=Path("/tmp/reg2026_trident"),
+        patch_encoder_weights_path=_resolve_conch_v15_weights_path(),
+        segmenter="hest",
+        seg_conf_thresh=0.5,
+        mag=20,
+        patch_size=512,
+        batch_size=256,
+        device="cuda:0" if torch.cuda.is_available() else "cpu",
+        mpp=0.5,
+        reader_type="tiffslide",
+        remove_artifacts=True,
+        remove_holes=True,
+    )
 
-    # TODO: replace placeholder return with model inference, e.g.:
-    #   device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    #   model = YourReasoningModel().to(device)
-    #   model.load_state_dict(torch.load(MODEL_PATH / "weights.pt", map_location=device))
-    #   model.eval()
-    #   return model.reason(wsi_array)
-
-    # placeholder — remove once your model is implemented
-    chain_of_thought = [
-        {
-            "question": "What type of specimen is this?",
-            "answer": "The specimen is a surgically resected tissue section prepared for histopathological examination.",
-            "next_question": "What is the predominant tissue architecture observed in this specimen?",
-        },
-        {
-            "question": "What is the predominant tissue architecture observed in this specimen?",
-            "answer": "The tissue shows predominantly glandular structures embedded within a fibrous stroma.",
-            "next_question": "Are there morphological features suggestive of malignancy?",
-        },
-        {
-            "question": "Are there morphological features suggestive of malignancy?",
-            "answer": "There are features including nuclear pleomorphism, prominent nucleoli, and increased mitotic figures.",
-            "next_question": "",
-        },
-    ]
-    return chain_of_thought
+    return predict_metric_a_single_case(
+        wsi_path=wsi_path,
+        config_file_path=_resolve_metric_a_config_path(),
+        checkpoint_path=_resolve_metric_a_checkpoint_path(),
+        reports_json_path=_resolve_metric_a_reports_path(),
+        feature_path=feature_path,
+    )

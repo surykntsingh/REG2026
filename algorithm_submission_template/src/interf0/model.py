@@ -20,8 +20,7 @@ from __future__ import annotations
 from pathlib import Path
 
 from core import load_json_file, load_roi_image
-
-# from src.your_repo.your_module import YourVQAModel   # <-- uncomment and adapt
+from path_wsi_reasoner.main_metric_b import predict_metric_b_single_case_from_model_dir
 
 
 def predict_visual_context_response(
@@ -43,17 +42,11 @@ def predict_visual_context_response(
     expects a plain JSON string in visual-context-response.json; changing this
     will break submission validation.
     """
-    # Load from paths — replace with your own pipeline if you prefer (paths are stable).
     question: str = load_json_file(location=question_path)
     roi_image = load_roi_image(location=roi_image_path)
 
-    # TODO: replace with your model inference, then remove the hardcoded return below.
-    # Example skeleton:
-    #   device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    #   model = YourVQAModel().to(device)
-    #   model.load_state_dict(torch.load(MODEL_PATH / "weights.pt", map_location=device))
-    #   model.eval()
-    #   answer = model.generate(image=roi_image, question=question)
-
-    answer = "Yes"  # placeholder — remove this line once your model is implemented
-    return answer
+    return predict_metric_b_single_case_from_model_dir(
+        question=question,
+        roi_image=roi_image,
+        model_dir=Path("/opt/ml/model"),
+    )

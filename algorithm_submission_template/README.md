@@ -152,7 +152,7 @@ Each Interface 1 case is one whole-slide image. The platform mounts it under a *
 | Interface selector | `/input/inputs.json` (read by `core.py`) |
 | Your chain of thought | `/output/chain-of-thought.json` |
 
-> ℹ️ **`<uid>`** is an **anonymous platform identifier** (typically a UUID such as `d021e460-42d8-4a72-b83e-f07050d8468a`). It is **not** the original slide filename (e.g. not `PIT_01_00020_01.tiff`). [`resolve_wsi_path()`](core.py) reads `image.name` from `/input/inputs.json` and opens `/input/images/whole-slide-image/<uid>.tiff`. Do not hard-code or guess the uid in your code.
+> ℹ️ **`<uid>`** is an **anonymous platform identifier** (typically a UUID such as `d021e460-42d8-4a72-b83e-f07050d8468a`). It is **not** the original slide filename (e.g. not `PIT_01_00020_01.tiff`). The template expects one WSI file for each Interface 1 run under `/input/images/whole-slide-image/`. Do not hard-code or guess the uid in your own model code.
 
 **Example layout for one case:**
 
@@ -173,7 +173,7 @@ def predict_chain_of_thought(*, wsi_path: Path) -> list[ChainOfThoughtStep]:
     ...
 ```
 
-`ChainOfThoughtStep` is defined in the same file. [`inference.py`](inference.py) resolves `wsi_path` via [`resolve_wsi_path()`](core.py), then the template loads it with [`load_wsi_array`](core.py) ([tifffile](https://pypi.org/project/tifffile/)) and logs array shape, dtype, min/max/mean/std, and sample values to verify the slide is not empty or corrupt. For large slides you may use `memmap`, OpenSlide, or cuCIM in your own code; keep `wsi_path` as the entry point.
+`ChainOfThoughtStep` is defined in the same file. [`inference.py`](inference.py) resolves the single WSI path for the run and passes it to `predict_chain_of_thought`. The current implementation passes that path to TRIDENT, generates CONCH v1.5 patch features under `/tmp`, and then calls `path_wsi_reasoner` Metric A inference with the generated H5 feature path.
 
 > 🚫 **Do not change the return type** (`list[ChainOfThoughtStep]`). `inference.py` writes the list directly to `chain-of-thought.json`.
 
@@ -319,7 +319,7 @@ Expected files after a successful run:
 
 These paths are defined in [`core.py`](core.py) and wired in [`inference.py`](inference.py).
 
-> 🚫 **Do not change the directory layout or socket filenames** in `core.py` or `inference.py`. The WSI **basename** `<uid>.tiff` changes per case; resolve it with [`resolve_wsi_path()`](core.py), do not hard-code a single filename.
+> 🚫 **Do not change the directory layout or socket filenames** in `core.py` or `inference.py`. The WSI **basename** `<uid>.tiff` changes per case; do not hard-code a single filename in your model code.
 
 | Path | Interface | Purpose |
 |---|---|---|

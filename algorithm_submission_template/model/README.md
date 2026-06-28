@@ -1,35 +1,50 @@
 # `model/`
 
-Saved **model files for inference** — checkpoints and any small files your loader needs alongside them (configs, tokenizers, etc.).
+Saved model files for inference. `do_save.sh` packs this directory into
+`model.tar.gz`; Grand Challenge extracts it to `/opt/ml/model/`.
 
-## What to put here
+Expected layout for the current REG2026 integration:
 
-| Kind | Examples |
-|---|---|
-| Checkpoints / weights | `weights.pt`, `model.safetensors`, `checkpoint.ckpt` |
-| Bundled weights | `pytorch_model.bin`, `model.pt` |
-| Config & tokenizer files | `config.json`, `tokenizer.json` |
-
-Subfolders are fine. Use whatever layout your code expects.
-
-**Example:**
-
-```
+```text
 model/
-├── weights.pt
-└── my_vlm/
-    ├── config.json
-    └── pytorch_model.bin
+├── config.yaml
+├── train_CoT_v01.json                  # or reports.json; used to rebuild Metric A tokenizer
+├── metric_a.ckpt                       # or metric_a/metric_a.ckpt
+├── metric_b.ckpt                       # or any *.ckpt found under model/
+├── pubmedbert/                         # required if Metric B checkpoint uses text_encoder_type=pubmedbert
+│   ├── config.json
+│   ├── tokenizer.json
+│   └── ...
+├── conch_v15/
+│   └── pytorch_model_vision.bin
+├── hest/
+│   └── deeplabv3_seg_v4.ckpt
+└── grandqc_artifact/
+    └── GrandQC_MPP1_state_dict.pth
 ```
 
-## Loading in code
+`config.yaml` must use container paths. At minimum, set Metric A checkpoint and
+tokenizer corpus paths to files mounted under `/opt/ml/model`, for example:
 
-At run time this directory is available as **`/opt/ml/model/`**. Open files via `MODEL_PATH` in [`core.py`](../core.py):
-
-```python
-from core import MODEL_PATH
-
-model.load_state_dict(torch.load(MODEL_PATH / "weights.pt"))
+```yaml
+train:
+  reports_json_path: /opt/ml/model/train_CoT_v01.json
+  model_load_path: /opt/ml/model/metric_a.ckpt
+  stage2_model_load_path: /opt/ml/model/metric_a.ckpt
 ```
 
-Point `MODEL_PATH / "…"` at the paths you use under `model/`.
+Interface 1 also accepts these overrides when present:
+
+```text
+METRIC_A_CONFIG_PATH
+METRIC_A_CHECKPOINT_PATH
+METRIC_A_REPORTS_JSON_PATH
+TRIDENT_CONCH_V15_WEIGHTS
+TRIDENT_SEG_HEST_WEIGHTS
+TRIDENT_SEG_GRANDQC_ARTIFACT_WEIGHTS
+```
+
+The HEST and GrandQC artifact checkpoints are required because Interface 1 uses
+the same TRIDENT settings as the batch command: `--segmenter hest`,
+`--remove_artifacts`, and `--remove_holes`. Runtime has no internet, so these
+cannot be downloaded on demand.
