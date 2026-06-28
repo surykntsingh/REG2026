@@ -521,6 +521,7 @@ class LocalQwenJudgeLLM:
         generated_ids = self.model.generate(
             **model_inputs,
             max_new_tokens=self.max_new_tokens,
+            do_sample=True,
             # use_cache=True
         )
         timings["reasoning"] = time.perf_counter() - t2
