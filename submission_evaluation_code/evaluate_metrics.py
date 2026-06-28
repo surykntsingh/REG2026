@@ -561,12 +561,14 @@ class LocalQwenJudgeLLM:
         timings["tokenize_to_device"] = time.perf_counter() - t1
 
         t2 = time.perf_counter()
+        print('*'*100)
         generated_ids = self.model.generate(
             **model_inputs,
             max_new_tokens=self.max_new_tokens,
             do_sample=False,
             # use_cache=True
         )
+        print('*' * 100)
         timings["reasoning"] = time.perf_counter() - t2
 
         t3 = time.perf_counter()
