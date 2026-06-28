@@ -109,6 +109,10 @@ def main() -> int:
     print(f"[Config] JUDGE_MODEL_PATH={judge_model_path!r}", flush=True)
     print(f"[Config] JUDGE_DEVICE env={os.environ.get('JUDGE_DEVICE')!r}", flush=True)
     print(f"[Config] JUDGE_DTYPE env={os.environ.get('JUDGE_DTYPE')!r}", flush=True)
+    print(
+        f"[Config] JUDGE_MAX_NEW_TOKENS env={os.environ.get('JUDGE_MAX_NEW_TOKENS')!r}",
+        flush=True,
+    )
     print(f"[Config] resolved judge_device={judge_device!r}", flush=True)
     print(f"[Config] EMBEDDING_MODEL={embedding_for_reg25!r}", flush=True)
     evaluate_metrics.print_runtime_diagnostics(judge_device)

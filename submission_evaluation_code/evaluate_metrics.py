@@ -50,7 +50,7 @@ DEFAULT_W2 = 0.3
 DEFAULT_W3 = 0.4
 
 DEFAULT_VOTING = 1
-DEFAULT_JUDGE_MAX_NEW_TOKENS = 32768
+DEFAULT_JUDGE_MAX_NEW_TOKENS = int(os.environ.get("JUDGE_MAX_NEW_TOKENS", "256"))
 DEFAULT_SKIP_MISSING_ROI = False
 
 # Revised weights requested by user
@@ -427,6 +427,12 @@ def print_runtime_diagnostics(requested_device: Optional[str] = None) -> None:
     judge_dtype_env = os.environ.get("JUDGE_DTYPE")
     if judge_dtype_env is not None:
         print(f"[Runtime] JUDGE_DTYPE env = {judge_dtype_env!r}", flush=True)
+    judge_max_new_tokens_env = os.environ.get("JUDGE_MAX_NEW_TOKENS")
+    if judge_max_new_tokens_env is not None:
+        print(
+            f"[Runtime] JUDGE_MAX_NEW_TOKENS env = {judge_max_new_tokens_env!r}",
+            flush=True,
+        )
     try:
         print(f"[Runtime] torch version = {torch.__version__}", flush=True)
         cuda_available = torch.cuda.is_available()
@@ -545,7 +551,7 @@ class LocalQwenJudgeLLM:
             messages,
             tokenize=False,
             add_generation_prompt=True,
-            enable_thinking=True
+            enable_thinking=False
         )
         timings["prompt_creation"] = time.perf_counter() - t0
         # print(f'text: {text}')
