@@ -479,6 +479,7 @@ class LocalQwenJudgeLLM:
             dtype=dtype,
             device_map=device_map,
             trust_remote_code=True,
+            attn_implementation="eager"
         )
 
         if not use_cuda:
@@ -520,7 +521,6 @@ class LocalQwenJudgeLLM:
         generated_ids = self.model.generate(
             **model_inputs,
             max_new_tokens=self.max_new_tokens,
-            torch_dtype=torch.bfloat16,
             # use_cache=True
         )
         timings["reasoning"] = time.perf_counter() - t2
