@@ -43,7 +43,8 @@ RUN python -m pip install \
         --no-cache-dir \
         --no-color \
         /opt/vendor/TRIDENT \
-        /opt/vendor/path_wsi_reasoner
+        /opt/vendor/path_wsi_reasoner \
+    && python -c "import path_wsi_reasoner, trident, tiffslide"
 
 COPY --chown=user:user REG2026/algorithm_submission_template/core.py      /opt/app/core.py
 COPY --chown=user:user REG2026/algorithm_submission_template/inference.py /opt/app/inference.py
