@@ -183,7 +183,7 @@ def predict_chain_of_thought(*, wsi_path: Path) -> list[ChainOfThoughtStep]:
         dataloader_workers=0,
         device="cuda:0" if torch.cuda.is_available() else "cpu",
         mpp=0.5,
-        reader_type="tiffslide",
+        reader_type="openslide",
         remove_artifacts=False,
         remove_holes=True,
     )
