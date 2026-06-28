@@ -382,6 +382,8 @@ def resolve_judge_device(requested: Optional[str] = None) -> str:
     raw = (requested or os.environ.get("JUDGE_DEVICE", "auto")).strip().lower()
     if raw in ("", "auto"):
         return "cuda" if torch.cuda.is_available() else "cpu"
+    if raw == "cuda":
+        return "cuda:0"
     return raw
 
 
@@ -515,7 +517,7 @@ class LocalQwenJudgeLLM:
             dtype = resolve_judge_dtype(use_cuda=False)
             print(f"[Judge LLM] Using CPU, dtype={dtype}", flush=True)
 
-        device_map = "auto" if use_cuda else None
+        device_map = None
         print(f"[Judge LLM] Loading model (device_map={device_map!r})...", flush=True)
         self.model = AutoModelForCausalLM.from_pretrained(
             model_path,
@@ -525,7 +527,10 @@ class LocalQwenJudgeLLM:
             attn_implementation="eager"
         )
 
-        if not use_cuda:
+        if use_cuda:
+            print(f"[Judge LLM] Moving model to {dev}...", flush=True)
+            self.model = self.model.to(dev)
+        else:
             print("[Judge LLM] Moving model to CPU...", flush=True)
             self.model = self.model.to(dev)
 
@@ -561,7 +566,6 @@ class LocalQwenJudgeLLM:
         timings["tokenize_to_device"] = time.perf_counter() - t1
 
         t2 = time.perf_counter()
-        print('*'*100)
         generated_ids = self.model.generate(
             **model_inputs,
             max_new_tokens=self.max_new_tokens,
