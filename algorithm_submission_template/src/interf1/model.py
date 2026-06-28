@@ -34,10 +34,9 @@ from typing import TypedDict
 
 import torch
 
-from core import MODEL_PATH
+from core import MODEL_PATH, load_wsi_array
 from path_wsi_reasoner.main import predict_metric_a_single_case
 from trident import extract_conch_v15_features_for_wsi
-
 
 class ChainOfThoughtStep(TypedDict):
     """One reasoning step — keys must match the platform schema exactly."""
@@ -158,19 +157,22 @@ def predict_chain_of_thought(*, wsi_path: Path) -> list[ChainOfThoughtStep]:
     to chain-of-thought.json; wrapping it or changing field names will break
     submission validation.
     """
+    wsi_array = load_wsi_array(location=wsi_path)
     _prepare_trident_offline_weights()
     feature_path = extract_conch_v15_features_for_wsi(
         wsi_path=wsi_path,
+        wsi_array=wsi_array,
         job_dir=Path("/tmp/reg2026_trident"),
         patch_encoder_weights_path=_resolve_conch_v15_weights_path(),
         segmenter="hest",
         seg_conf_thresh=0.5,
         mag=20,
         patch_size=512,
-        batch_size=256,
+        batch_size=64,
+        dataloader_workers=0,
         device="cuda:0" if torch.cuda.is_available() else "cpu",
         mpp=0.5,
-        reader_type="tiffslide",
+        reader_type="array",
         remove_artifacts=True,
         remove_holes=True,
     )
