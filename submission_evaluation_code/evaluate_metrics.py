@@ -510,7 +510,7 @@ class LocalQwenJudgeLLM:
             enable_thinking=True
         )
         timings["prompt_creation"] = time.perf_counter() - t0
-        print(f'text: {text}')
+        # print(f'text: {text}')
 
         t1 = time.perf_counter()
         model_inputs = self.tokenizer([text], return_tensors="pt").to(self.input_device)
@@ -520,6 +520,7 @@ class LocalQwenJudgeLLM:
         generated_ids = self.model.generate(
             **model_inputs,
             max_new_tokens=self.max_new_tokens,
+            torch_dtype=torch.bfloat16,
             # use_cache=True
         )
         timings["reasoning"] = time.perf_counter() - t2
