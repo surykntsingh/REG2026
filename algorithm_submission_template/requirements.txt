@@ -2,3 +2,4 @@ Pillow
 numpy
 tifffile
 imagecodecs
+tiffslide
