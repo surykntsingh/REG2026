@@ -152,16 +152,6 @@ def _resolve_metric_a_reports_path() -> Path | None:
     )
 
 
-def _resolve_trident_reader_type() -> str:
-    reader_type = os.environ.get("TRIDENT_WSI_READER", "tiffslide").strip().lower()
-    if reader_type not in {"tiffslide", "openslide"}:
-        raise ValueError(
-            "TRIDENT_WSI_READER must be either 'tiffslide' or 'openslide' "
-            f"when set; got {reader_type!r}."
-        )
-    return reader_type
-
-
 def predict_chain_of_thought(*, wsi_path: Path) -> list[ChainOfThoughtStep]:
     """
     Run Workflow Reasoning inference for a single whole-slide image.
@@ -195,7 +185,7 @@ def predict_chain_of_thought(*, wsi_path: Path) -> list[ChainOfThoughtStep]:
             dataloader_workers=0,
             device="cuda:0" if torch.cuda.is_available() else "cpu",
             mpp=0.5,
-            reader_type=_resolve_trident_reader_type(),
+            reader_type="tiffslide",
             reader_type_fallbacks=(),
             fallback_segmenters=False,
             remove_artifacts=False,
