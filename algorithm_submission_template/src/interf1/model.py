@@ -178,7 +178,7 @@ def predict_chain_of_thought(*, wsi_path: Path) -> list[ChainOfThoughtStep]:
             job_dir=Path("/tmp/reg2026_trident"),
             patch_encoder_weights_path=_resolve_conch_v15_weights_path(),
             segmenter="hest",
-            seg_conf_thresh=0.5,
+            seg_conf_thresh=0.1,
             mag=20,
             patch_size=512,
             batch_size=64,
@@ -190,6 +190,7 @@ def predict_chain_of_thought(*, wsi_path: Path) -> list[ChainOfThoughtStep]:
             fallback_segmenters=False,
             remove_artifacts=False,
             remove_holes=True,
+            reuse_existing=False,
         )
         stage_start = _log_stage(f"generated CONCH features at {feature_path}", stage_start)
 
