@@ -138,7 +138,7 @@ def predict_chain_of_thought(*, wsi_path: Path) -> list[ChainOfThoughtStep]:
             patch_size=512,
             batch_size=64,
             segmentation_batch_size=64,
-            dataloader_workers=1,
+            dataloader_workers=0,
             feature_dataloader_workers=1,
             device="cuda:0" if torch.cuda.is_available() else "cpu",
             mpp=0.5,
