@@ -58,97 +58,52 @@ class ChainOfThoughtStep(TypedDict):
     next_question: str
 
 
-def _resolve_conch_v15_weights_path() -> Path | None:
-    env_path = os.environ.get("TRIDENT_CONCH_V15_WEIGHTS")
-    if env_path:
-        candidate = Path(env_path)
-        if candidate.exists():
-            return candidate
+def _require_model_file(path: Path, description: str) -> Path:
+    if not path.exists():
+        raise FileNotFoundError(f"{description} was not found at expected path: {path}")
+    return path
 
-    candidates = [
-        MODEL_PATH / "pytorch_model_vision.bin",
+
+def _resolve_conch_v15_weights_path() -> Path:
+    return _require_model_file(
         MODEL_PATH / "conch_v15" / "pytorch_model_vision.bin",
-        MODEL_PATH / "conchv1_5" / "pytorch_model_vision.bin",
-        MODEL_PATH / "conch_v1_5" / "pytorch_model_vision.bin",
-    ]
-    for candidate in candidates:
-        if candidate.exists():
-            return candidate
-    return None
-
-
-def _first_existing_path(*candidates: Path) -> Path | None:
-    for candidate in candidates:
-        if candidate.exists():
-            return candidate
-    return None
-
-
-def _set_env_path_if_exists(name: str, *candidates: Path) -> None:
-    if os.environ.get(name):
-        return
-    resolved = _first_existing_path(*candidates)
-    if resolved is not None:
-        os.environ[name] = str(resolved)
+        "CONCH v1.5 checkpoint",
+    )
 
 
 def _prepare_trident_offline_weights() -> None:
-    _set_env_path_if_exists(
-        "TRIDENT_SEG_HEST_WEIGHTS",
-        MODEL_PATH / "deeplabv3_seg_v4.ckpt",
-        MODEL_PATH / "hest" / "deeplabv3_seg_v4.ckpt",
-        MODEL_PATH / "segmentation" / "hest" / "deeplabv3_seg_v4.ckpt",
-        MODEL_PATH / "trident" / "seg" / "hest" / "deeplabv3_seg_v4.ckpt",
+    os.environ["TRIDENT_SEG_HEST_WEIGHTS"] = str(
+        _require_model_file(
+            MODEL_PATH / "hest" / "deeplabv3_seg_v4.ckpt",
+            "HEST segmenter checkpoint",
+        )
     )
-    _set_env_path_if_exists(
-        "TRIDENT_SEG_GRANDQC_ARTIFACT_WEIGHTS",
-        MODEL_PATH / "GrandQC_MPP1_state_dict.pth",
-        MODEL_PATH / "grandqc_artifact" / "GrandQC_MPP1_state_dict.pth",
-        MODEL_PATH / "segmentation" / "grandqc_artifact" / "GrandQC_MPP1_state_dict.pth",
-        MODEL_PATH / "trident" / "seg" / "grandqc_artifact" / "GrandQC_MPP1_state_dict.pth",
+    os.environ["TRIDENT_SEG_GRANDQC_ARTIFACT_WEIGHTS"] = str(
+        _require_model_file(
+            MODEL_PATH / "grandqc_artifact" / "GrandQC_MPP1_state_dict.pth",
+            "GrandQC artifact checkpoint",
+        )
     )
 
 
 def _resolve_metric_a_config_path() -> Path:
-    env_path = os.environ.get("METRIC_A_CONFIG_PATH")
-    if env_path and Path(env_path).exists():
-        return Path(env_path)
-    resolved = _first_existing_path(
+    return _require_model_file(
         MODEL_PATH / "config.yaml",
-        MODEL_PATH / "metric_a" / "config.yaml",
+        "Metric A config.yaml",
     )
-    if resolved is None:
-        raise FileNotFoundError(
-            "Metric A config.yaml was not found. Put it at /opt/ml/model/config.yaml "
-            "or /opt/ml/model/metric_a/config.yaml via algorithm_submission_template/model."
-        )
-    return resolved
 
 
-def _resolve_metric_a_checkpoint_path() -> Path | None:
-    env_path = os.environ.get("METRIC_A_CHECKPOINT_PATH")
-    if env_path and Path(env_path).exists():
-        return Path(env_path)
-    return _first_existing_path(
-        MODEL_PATH / "metric_a.ckpt",
-        MODEL_PATH / "stage2_model.ckpt",
+def _resolve_metric_a_checkpoint_path() -> Path:
+    return _require_model_file(
         MODEL_PATH / "cot_workflow_model.ckpt",
-        MODEL_PATH / "metric_a" / "metric_a.ckpt",
-        MODEL_PATH / "metric_a" / "stage2_model.ckpt",
-        MODEL_PATH / "metric_a" / "cot_workflow_model.ckpt",
-        MODEL_PATH / "histgen_cot_stage2" / "metric_a.ckpt",
+        "Metric A checkpoint",
     )
 
 
-def _resolve_metric_a_reports_path() -> Path | None:
-    env_path = os.environ.get("METRIC_A_REPORTS_JSON_PATH")
-    if env_path and Path(env_path).exists():
-        return Path(env_path)
-    return _first_existing_path(
-        MODEL_PATH / "reports.json",
+def _resolve_metric_a_reports_path() -> Path:
+    return _require_model_file(
         MODEL_PATH / "train_CoT_v01.json",
-        MODEL_PATH / "metric_a" / "reports.json",
-        MODEL_PATH / "metric_a" / "train_CoT_v01.json",
+        "Metric A reports JSON",
     )
 
 
@@ -181,7 +136,8 @@ def predict_chain_of_thought(*, wsi_path: Path) -> list[ChainOfThoughtStep]:
             seg_conf_thresh=0.1,
             mag=20,
             patch_size=512,
-            batch_size=128,
+            batch_size=64,
+            segmentation_batch_size=64,
             dataloader_workers=0,
             device="cuda:0" if torch.cuda.is_available() else "cpu",
             mpp=0.5,
