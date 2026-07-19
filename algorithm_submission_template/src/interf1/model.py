@@ -41,6 +41,10 @@ from path_wsi_reasoner.main import predict_metric_a_single_case
 from trident import extract_conch_v15_features_for_wsi
 
 
+TRIDENT_READER_TYPE = "fastslide"
+TRIDENT_FASTSLIDE_APPLY_ICC = False
+
+
 def _log_stage(message: str, start_time: float | None = None) -> float:
     now = time.monotonic()
     if start_time is None:
@@ -139,11 +143,11 @@ def predict_chain_of_thought(*, wsi_path: Path) -> list[ChainOfThoughtStep]:
             batch_size=64,
             segmentation_batch_size=64,
             dataloader_workers=0,
-            feature_dataloader_workers=0,
             device="cuda:0" if torch.cuda.is_available() else "cpu",
             mpp=0.5,
-            reader_type="openslide",
+            reader_type=TRIDENT_READER_TYPE,
             reader_type_fallbacks=(),
+            fastslide_apply_icc=TRIDENT_FASTSLIDE_APPLY_ICC,
             fallback_segmenters=False,
             remove_artifacts=False,
             remove_holes=False,

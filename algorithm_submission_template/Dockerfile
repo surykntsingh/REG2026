@@ -27,6 +27,7 @@ USER user
 WORKDIR /opt/app
 
 COPY --chown=user:user REG2026/algorithm_submission_template/requirements.txt /opt/app/requirements.txt
+COPY --chown=user:user REG2026/algorithm_submission_template/build/fastslide_wheels/ /opt/wheels/fastslide/
 COPY --chown=user:user path_wsi_reasoner /opt/vendor/path_wsi_reasoner
 COPY --chown=user:user TRIDENT /opt/vendor/TRIDENT
 
@@ -45,9 +46,14 @@ RUN python -m pip install \
         --user \
         --no-cache-dir \
         --no-color \
+        /opt/wheels/fastslide/fastslide-*.whl \
+    && python -m pip install \
+        --user \
+        --no-cache-dir \
+        --no-color \
         /opt/vendor/TRIDENT \
         /opt/vendor/path_wsi_reasoner \
-    && python -c "import path_wsi_reasoner, trident, tiffslide"
+    && python -c "import fastslide, path_wsi_reasoner, trident, tiffslide"
 
 COPY --chown=user:user REG2026/algorithm_submission_template/core.py      /opt/app/core.py
 COPY --chown=user:user REG2026/algorithm_submission_template/inference.py /opt/app/inference.py
