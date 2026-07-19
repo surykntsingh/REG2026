@@ -116,10 +116,72 @@ run_docker_forward_pass() {
   echo "=+= Wrote results to ${OUTPUT_DIR}/${interface_dir}"
 }
 
+print_interf1_ground_truth() {
+    local inputs_json="${INPUT_DIR}/interf1/inputs.json"
+    local ground_truth_json="${SCRIPT_DIR}/model/train_CoT_v01.json"
+
+    if [ ! -f "$ground_truth_json" ]; then
+        echo "=+= Ground truth lookup skipped: ${ground_truth_json} not found"
+        return
+    fi
+
+    if [ ! -f "$inputs_json" ]; then
+        echo "=+= Ground truth lookup skipped: ${inputs_json} not found"
+        return
+    fi
+
+    python3 - "$inputs_json" "$ground_truth_json" <<'PY'
+import json
+import sys
+from pathlib import Path
+
+inputs_path = Path(sys.argv[1])
+ground_truth_path = Path(sys.argv[2])
+
+with inputs_path.open("r", encoding="utf-8") as f:
+    inputs = json.load(f)
+
+slide_id = None
+for item in inputs:
+    socket = item.get("socket") or {}
+    image = item.get("image") or {}
+    if socket.get("slug") == "whole-slide-image" and image.get("name"):
+        slide_id = image["name"]
+        break
+
+if slide_id is None:
+    print("=+= Ground truth lookup skipped: no whole-slide-image entry found in inputs.json")
+    raise SystemExit(0)
+
+with ground_truth_path.open("r", encoding="utf-8") as f:
+    records = json.load(f)
+
+match = None
+if isinstance(records, dict):
+    match = records.get(slide_id) or records.get(Path(slide_id).stem)
+else:
+    slide_stem = Path(slide_id).stem
+    for record in records:
+        record_id = str(record.get("id", ""))
+        if record_id == slide_id or Path(record_id).stem == slide_stem:
+            match = record
+            break
+
+if match is None:
+    print(f"=+= Ground truth not found for slide id: {slide_id}")
+    raise SystemExit(0)
+
+print(f"=+= Ground truth found for slide id: {slide_id}")
+print(json.dumps(match, indent=2, ensure_ascii=False))
+PY
+}
+
 
 run_docker_forward_pass "interf0"
 
 run_docker_forward_pass "interf1"
+
+print_interf1_ground_truth
 
 
 
