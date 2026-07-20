@@ -151,7 +151,7 @@ def predict_chain_of_thought(*, wsi_path: Path) -> list[ChainOfThoughtStep]:
             fallback_segmenters=False,
             remove_artifacts=False,
             remove_holes=False,
-            reuse_existing=True,
+            reuse_existing=False,
         )
         stage_start = _log_stage(f"generated CONCH features at {feature_path}", stage_start)
 
