@@ -156,12 +156,22 @@ def predict_chain_of_thought(*, wsi_path: Path) -> list[ChainOfThoughtStep]:
         stage_start = _log_stage(f"generated CONCH features at {feature_path}", stage_start)
 
         stage_start = _log_stage("running Metric A single-case prediction")
+        prediction_ = predict_metric_a_single_case(
+            wsi_path=wsi_path,
+            config_file_path=_resolve_metric_a_config_path(),
+            checkpoint_path=_resolve_metric_a_checkpoint_path(),
+            reports_json_path=_resolve_metric_a_reports_path(),
+            feature_path=feature_path,
+        )
+        print('without organ: ',prediction_)
+
         prediction = predict_metric_a_single_case(
             wsi_path=wsi_path,
             config_file_path=_resolve_metric_a_config_path(),
             checkpoint_path=_resolve_metric_a_checkpoint_path(),
             reports_json_path=_resolve_metric_a_reports_path(),
             feature_path=feature_path,
+            organ='prostate'
         )
         _log_stage("completed Metric A single-case prediction", stage_start)
         _log_stage("completed Metric A inference", total_start)
