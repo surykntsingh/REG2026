@@ -82,12 +82,12 @@ def _prepare_trident_offline_weights() -> None:
             "HEST segmenter checkpoint",
         )
     )
-    os.environ["TRIDENT_SEG_GRANDQC_ARTIFACT_WEIGHTS"] = str(
-        _require_model_file(
-            MODEL_PATH / "grandqc_artifact" / "GrandQC_MPP1_state_dict.pth",
-            "GrandQC artifact checkpoint",
-        )
-    )
+    # os.environ["TRIDENT_SEG_GRANDQC_ARTIFACT_WEIGHTS"] = str(
+    #     _require_model_file(
+    #         MODEL_PATH / "grandqc_artifact" / "GrandQC_MPP1_state_dict.pth",
+    #         "GrandQC artifact checkpoint",
+    #     )
+    # )
 
 
 def _resolve_metric_a_config_path() -> Path:
